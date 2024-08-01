@@ -1,7 +1,7 @@
 # NC-Oyster-Sanctuary
-R scripts used to analyze data collected from monitoring NC's network of oyster sanctuaries
+This series of R scripts are used for end-to-end workflow of wrangling, analyzing, and visualizing data collected from annual surveys of North Carolina's network of oyster sanctuaries. 
 
-Each year monitoring efforts collect ecological data on the oyster sanctuaries throughout Pamlico Sound. In 2018, this methodology was revamped with a pilot study that was cut short by hurricane Florence. From 2019 onward this robust monitoring procedure has been used to collect standardized samples and record relevant ecological data pertaining to the performance of artificial reefs with the goal of restoring subtidal oyster populations. This repository includes just the R code and the output graphs for analyzing the yearly datasets as well as the 2019-2023 collective. To request the oyster data (state data is subject to a formal request procedure), please contact me at my work email: bennett.paradis@deq.nc.gov.
+Each year monitoring efforts collect ecological data on the oyster sanctuaries throughout Pamlico Sound. In 2018, this methodology was revamped with a pilot study that was cut short by hurricane Florence. From 2019 to 2023 this robust monitoring procedure has been used to collect standardized samples and record relevant ecological data pertaining to the performance of artificial reefs with the goal of restoring subtidal oyster populations. This repository includes just the R code and the output graphs for analyzing the yearly datasets as well as the 2019-2023 collective. To request the oyster data, please contact me at my work email: bennett.paradis@deq.nc.gov.
 
 Below is a general description of the program and the methodology used during data collection for Oyster Sanctuary monitoring.
 
@@ -12,7 +12,7 @@ North Carolina’s Division of Marine Fisheries has been permitting, constructin
 
 The creation and preservation of oyster sanctuaries represents both a long-term ecological restoration project as well as a long-term fisheries investment to the state of North Carolina. While artificial reefs and oyster sanctuaries can be relatively small in comparison to natural reefs, they provide ecosystem services that improve the quality of habitat throughout Pamlico Sound. Prohibited from oyster harvest, sanctuaries encourage the growth of large, healthy oyster populations that act as brood stock for the rest of North Carolina’s waters. This strategy has been found to support high reproductive potential within sanctuaries, thereby providing larvae to natural reefs. Sanctuaries also act as nursery habitat for other species, increasing their abundance for commercial and recreational fishing; provide refuge and forage habitat for marine life; provide travel corridors for transient finfish; and increase water filtration, reducing turbidity and excess nutrients in the estuary. 
 
-Today DMF maintains and manages 15 oyster sanctuaries throughout Pamlico Sound. The sanctuaries encompass 566.22 acres total, with over 223,643 tons of aggregate material deployed for oyster habitat. 
+The dataset used in this workflow has been collected on 14 of the oyster sanctuaries constructed and maintained by NCDMF. As of 2023 North Carolina's Pamlico Sound is home to 15 oyster sanctuaries which encompass 563 acres total, with over 223,643 tons of aggregate material deployed for restored oyster habitat. 
 
 Program Objectives
 1.	Evaluate material performance as oyster habitat.
