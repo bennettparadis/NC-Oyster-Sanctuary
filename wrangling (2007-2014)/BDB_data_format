@@ -1,0 +1,199 @@
+setwd("S:/8. Oyster Sanctuaries/3. Monitoring and Data/1. Oyster Sanctuary (OS)/5. Analysis/2007-2018/2007-2018_analysis")
+
+library(dplyr)
+library(grid)
+library(gridExtra)
+library(ggplot2)
+library(tidyr)
+library(data.table)
+library(scales)
+library(devtools)
+library(stringr)
+
+data_all<-read.csv("BDB_data.csv") #reads in raw data from BDB Global Export
+data.frame(data_all)
+
+data_all$Status<-""#creates column in dataframe called "Status" and fills with blank (used in loop for labeling years with no data)
+data_all$Active <- ""#creates a column for whether the sanctuary is still active or not (Y/N)
+
+#geospatial corrections for latitude of Deep Bay and Middle Bay sampling in 2008
+data_all$LAT1611[data_all$Location.Desc == "DEEP BAY" & data_all$Year == 8 & data_all$Month == 11 & data_all$Day == 7] <- gsub("(?<=^\\d)6", "5", data_all$LAT1611[data_all$Location.Desc == "DEEP BAY" & data_all$Year == 8 & data_all$Month == 11 & data_all$Day == 7], perl = TRUE)
+data_all$LAT1611[data_all$Location.Desc == "MIDDLE BAY" & data_all$Year == 8 & data_all$Month == 10 & data_all$Day == 2] <- gsub("(?<=^\\d)4", "5", data_all$LAT1611[data_all$Location.Desc == "MIDDLE BAY" & data_all$Year == 8 & data_all$Month == 10 & data_all$Day == 2], perl = TRUE)
+
+
+#function to calculate the surface area of an ellipsoid
+ellipsoid_sa <- function(length, width, height) {
+  4 * pi * (( (  (length * width)^1.6 + (length * height)^1.6 + (width * height)^1.6 ) / 3) ^(1/1.6) ) 
+}
+
+
+oyster_data <- data_all%>%
+  filter(Species == 5510020102)%>% #keeps only oysters
+  filter(Station != "AR396")%>% #removes samples from AR396
+  filter(Station != "OS00 ")%>% #removes natural rock samples
+  filter(RepTrips < 98)%>%#removes sketchy values for rock dimensions
+  select(-Species, -Species.Desc, -Quad, -Control3, -Control4, -RepGear, -RepSize, -Tag1, -Tag2, -NbrTag2, -SubNum, -NbrRep, -MSpecies, -SpStatus)%>% #removes unnecessary and redundant columns
+  rename(OS_ID = Station, OS_Name = Location.Desc, Material.Overplant = Time, Relief = Duration, RockNum = Rep, R.Width = RepPrice, Deployment.Date = G1_Parm3, Mound=Var1,Strata=Quality2,Material = MSpecies.Desc, R.Length = RepTrips, R.Height=RepBox, SH_mm = Length, Alive.Count = NbrTag1, Latitude = LAT1611, Longitude = LON1611, Sedimentation = Quality3)%>%
+  mutate(OS_Name = str_to_title(OS_Name))%>%
+  mutate(R.Length = R.Length/100, R.Height = R.Height/100)%>%#convert rock dimensions to meters
+  mutate(EllipsoidSA_m2 = ellipsoid_sa(R.Length, R.Width, R.Height))%>%#adds new column and uses the ellipsoid surface area function to calculate SA of a rock in meters squared
+  mutate(SH_mm = (SH_mm*10)+1)%>% #adjust lengths to 10mm bins, add 1 because of the 0 bin
+  mutate(OS_ID = substr(OS_ID, 3,4))%>%#drops OS in string
+  mutate(Year = Year + 2000)%>%#next three mutates just format the month and years for sampling dates and deployment dates
+  mutate_at(c('Deployment.Date'), ~na_if(.,0))%>%#if Deployment date is 0, then replaces with NA
+  mutate(Deployment_Month = substr(Deployment.Date, 1, nchar(Deployment.Date)-2),
+         Deployment_Year = ifelse(as.numeric(substr(Deployment.Date, nchar(Deployment.Date)-1, nchar(Deployment.Date))) > 20,
+                                  paste0("19", substr(Deployment.Date, nchar(Deployment.Date)-1, nchar(Deployment.Date))),
+                                  paste0("20", substr(Deployment.Date, nchar(Deployment.Date)-1, nchar(Deployment.Date)))))%>%
+  select(-Deployment.Date, -Var2, -ColSze, -NbrRec3, -LineNum)%>%
+  unite(GeoID, Latitude, Longitude, sep="", remove = FALSE)%>% #creates unique GeoID for separating out each sample location 
+  group_by(Year, Month, Day, OS_ID, Deployment_Year, Mound, GeoID, Strata) %>%#groups all the rows into sites, assigning a number for each unique site that was sampled since multiple rocks came up from the same dive and location
+  mutate(Site = cur_group_id())%>%#assigns a site number to each group from the row above
+  mutate(SID = paste(Year, Month, Day,"OS", OS_ID, Site, sep ="-"))%>%#creates SID identifier
+  mutate(Size_Class = ifelse(SH_mm <= 25, "Spat",
+                                        ifelse(SH_mm <=75, "Sub-Legal", "Legal")))%>%
+  mutate(Latitude = paste0(substr(Latitude,1,2), " ", substr(Latitude, 3,4), ".", substr(Latitude, 5,8)))%>%
+  mutate(Longitude = paste0(substr(Longitude,1,2), " ", substr(Longitude, 3,4), ".", substr(Longitude, 5,8)))%>%
+  as.data.frame()
+
+
+#write.csv(oyster_data, "check1.csv")
+
+# Calculate Total live oyster density by grouping sites together to sum total number of live oysters and sum total excavated surface area and dividing
+oyster_data2 <- oyster_data%>% 
+  #filter(Parm_A == 1)%>%
+  distinct(Control2, .keep_all = TRUE)%>%
+  select(Control2,SID,EllipsoidSA_m2, Alive.Count)%>%
+  group_by(SID)%>%
+  mutate(Total_SA = sum(EllipsoidSA_m2), Total_Live = sum(Alive.Count))%>%
+  mutate(quad_count = Total_Live*2.3/Total_SA)%>% #includes correction factor for the average surface area brought up by rocks excavated in a 1/4m quadrat (2019 protocol) effectively estimating a "Quadrat count"
+  mutate(Live_Density = quad_count * 4)%>% #after converting to 1/4m quadrat count, then multiplied by 4 (for full square meter density estimate)
+  select(-Alive.Count, -EllipsoidSA_m2)
+  
+
+
+# Combine total density estimate with formatted oyster data 
+oyster_density <- left_join(oyster_data, oyster_data2, by = "Control2")%>%
+  filter(Parm_A == 1)%>%
+  select(-SID.y)%>%
+  rename(SID = SID.x)
+
+
+test_data <- oyster_density%>%
+  filter(Size_Class == 'Legal')%>%
+  select(Control2, SID, SH_mm, Frequency, Total_SA)%>%
+  group_by(SID)%>%
+  mutate(Legal_Count = 2.3*(sum(Frequency))/Total_SA)%>%
+  mutate(Legal_Density = Legal_Count *4)%>%
+  select(-Total_SA, -SH_mm, -Frequency, -Control2)%>%
+  distinct(SID, .keep_all = TRUE)
+
+check2 <- filter(oyster_data2, SID == '2011-8-3-OS-09-940')
+
+# Legal oyster count and density estimates
+legal_oyster_data <- oyster_density%>%
+  filter(Size_Class == 'Legal')%>%
+  select(Control2, SID, SH_mm, Frequency, Total_SA)%>%
+  group_by(SID)%>%
+  mutate(Legal_Count = 2.3*(sum(Frequency))/Total_SA)%>%
+  mutate(Legal_Density = Legal_Count*4)%>%
+  select(-Total_SA, -SH_mm, -Frequency, -Control2)%>%
+  distinct(SID, .keep_all = TRUE)
+
+
+# Sub-Legal density
+sublegal_oyster_data <- oyster_density%>%
+  filter(Size_Class == 'Sub-Legal')%>%
+  select(Control2, SID, SH_mm, Frequency, Total_SA)%>%
+  group_by(SID)%>%
+  mutate(Sub_Legal_Count =2.3*(sum(Frequency))/Total_SA)%>%
+  mutate(Sub_Legal_Density = Sub_Legal_Count *4)%>%
+  select(-Total_SA, -SH_mm, -Frequency, -Control2)%>%
+  distinct(SID, .keep_all = TRUE)
+
+
+# Spat density
+spat_oyster_data <- oyster_density%>%
+  filter(Size_Class == 'Spat')%>%
+  select(Control2, SID, SH_mm, Frequency, Total_SA)%>%
+  group_by(SID)%>%
+  mutate(Spat_Count = 2.3*(sum(Frequency))/Total_SA)%>%
+  mutate(Spat_Density = Spat_Count *4)%>%
+  select(-Total_SA, -SH_mm, -Frequency, -Control2)%>%
+  distinct(SID, .keep_all = TRUE)
+
+
+
+# Join size class counts & density estimates to full dataset
+oyster_density <- left_join(oyster_density, legal_oyster_data, by = "SID")
+oyster_density <- left_join(oyster_density, sublegal_oyster_data, by = "SID")
+oyster_density <- left_join(oyster_density, spat_oyster_data, by = "SID")
+
+
+# replace NAs with 0s for count and density data
+oyster_density <- oyster_density%>%
+  mutate_at(c('Total_Live', 'Live_Density', 'Legal_Count', 'Legal_Density', 'Sub_Legal_Count', 'Sub_Legal_Density', 'Spat_Count', 'Spat_Density' ), ~replace_na(.,0))
+
+
+
+# Add Non-spat columns
+
+non_spat_data <- oyster_density%>%
+  select(Control2, SID, Live_Density, Spat_Density)%>%
+  mutate(Non_Spat_Density = (Live_Density - Spat_Density))%>%
+  select(-Control2, -Live_Density, -Spat_Density)%>%
+  distinct(SID, .keep_all = TRUE)
+
+oyster_density <- left_join(oyster_density, non_spat_data, by = "SID")
+
+oyster_density <- oyster_density%>%
+  mutate(Material.Overplant = case_when(
+    Material.Overplant == 0 ~ 'NA',
+    Material.Overplant == 1 ~ 'Class B',
+    Material.Overplant == 2 ~ 'Seeded Oyster Shell',
+    Material.Overplant == 3 ~ 'Surf Clam',
+    Material.Overplant == 4 ~ 'Number 4',
+    Material.Overplant == 5 ~ 'Oyster Shell',
+    Material.Overplant == 6 ~ 'Seeded Riprap'
+  ))
+
+# Format data codes to current metadata info
+oyster_density <- oyster_density%>%
+  mutate(OS_Name = ifelse(OS_Name == 'Unknown','Gibbs Shoal', OS_Name))%>%
+  mutate(Sedimentation = case_when(
+    Sedimentation == 3 ~ 4,
+    Sedimentation == 2 ~ 3,
+    Sedimentation == 1 ~ 2,
+    Sedimentation == 0 ~ 1
+  ))%>%
+  mutate(Sedimentation = na_if(Sedimentation, 9))%>%
+  mutate(Strata = case_when(
+    Strata == 1 ~ 'T',
+    Strata == 2 ~ 'T',
+    Strata == 3 ~ 'B'
+    ))%>%
+  mutate(Strata = na_if(Strata, 4))%>%
+  mutate(Material = ifelse(Material == 'Quadrate', 'Marl', Material))%>%
+  mutate(Material_subclass = paste0(substr(Material, 6, 15)))%>%
+  mutate(Material_subclass = na_if(Material_subclass, ""))%>%
+  mutate(Material = paste0(substr(Material,1,4)))%>%
+  complete(OS_ID, Year= 2007:2014, #add a single row of data for each year from 2007-2014 where data was missing for a sanctuary - needed so the loop can run
+           fill = list(Status = "(no data)", Frequency = 0, SH_mm = 0))%>%
+  mutate(OS_Name = ifelse(OS_Name == 'West Bluff Bay', 'West Bluff', OS_Name))
+
+
+cols.num <- c('Deployment_Year','Deployment_Month')
+oyster_density[cols.num] <- sapply(oyster_density[cols.num], as.numeric)
+
+
+
+#format to match rest of density estimate spread sheets
+formatted_oyster_density <- oyster_density%>%
+  distinct(SID, .keep_all =TRUE)%>%
+  mutate(Material_Age = ((Year-Deployment_Year)+(Month-Deployment_Month)/12))%>%
+  select(SID, Year, OS_ID, OS_Name, Site, Material, Material.Overplant, Live_Density, Legal_Density, Sub_Legal_Density, Spat_Density, Non_Spat_Density, Latitude, Longitude, Deployment_Year, Deployment_Month, Material_Age, Sedimentation, Strata, Depth, Relief, SDO, BDO, SSal, BSal, STemp, BTemp )
+
+
+
+
+write.csv(formatted_oyster_density, "2007_2014_oyster_density_11032023.csv")
