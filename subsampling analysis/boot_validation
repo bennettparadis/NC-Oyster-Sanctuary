@@ -2,11 +2,10 @@ library(stats)
 library(dplyr)
 library(ggplot2)
 
-
+#Upload data
 #setwd("S:/8. Oyster Sanctuaries/3. Monitoring and Data/1. Oyster Sanctuary (OS)/5. Analysis/2019-current R")
 
 #OS_data <- read.csv("All 19-23 R Data.csv")
-truth <- read.csv("1700_truth.csv")
 #OS_data <- OS_data%>%
 #  select(SID, SH..mm.)%>%
 #  rename(SH = SH..mm.)
@@ -16,6 +15,7 @@ truth <- read.csv("1700_truth.csv")
 #   filter(SID == '2020-6-26-OS-12-5')%>%
 #   select(SH)
 
+truth <- read.csv("1700_truth.csv")
 
 #create into a numeric list
 truth <- as.numeric(truth$SH)
