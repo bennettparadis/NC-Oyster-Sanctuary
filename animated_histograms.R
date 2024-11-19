@@ -13,12 +13,10 @@ OS_import <- read.csv("All 19-24 R Data.csv") #Read in ANNUAL Dataset
 data.frame(OS_import)
 
 OS_import<-subset(OS_import, OS_import$Collection.Method != "Observation")
-
 OS_import<- dplyr::rename(OS_import,OS_ID=OS.ID,SH_mm =SH..mm., OS_Name=OS.Name,Site_ID=Site.., Size_Class=Size.Class)
 
 
 ####specify the sanctuary of interest, select data for just that sanctuary
-
 
 #site <- "Cedar Island"
 #site <- "Crab Hole"
@@ -111,16 +109,12 @@ p <- ggplot(hist_data, aes(x=SH))+
   enter_fade() +
   exit_fade()
 
-
-
 anim <- animate(
   p +
     transition_states(year, transition_length = 3, state_length = 6) +
     enter_fade() + 
     exit_fade(),
   fps = 15)
-
-#anim
 
 setwd("S:/8. Oyster Sanctuaries/3. Monitoring and Data/1. Oyster Sanctuary (OS)/5. Analysis/2019-current R/histogram gifs")
 suffix <- "_2019-2024 hist"
